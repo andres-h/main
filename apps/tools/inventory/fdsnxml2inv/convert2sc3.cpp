@@ -1255,14 +1255,7 @@ void serializeJSON(const FDSNXML::Equipment *equipment, IO::JSONArchive &ar) {
 }
 
 
-void serializeJSON(const FDSNXML::FloatType *ft, IO::JSONArchive &ar) {
-	try {
-		double value = ft->value();
-		ar & NAMED_OBJECT("value", value);
-	}
-	catch ( Core::ValueException & ) {
-	}
-
+void serializeJSONUncertainty(const FDSNXML::FloatType *ft, IO::JSONArchive &ar) {
 	try {
 		string unit = ft->unit();
 		ar & NAMED_OBJECT("unit", unit);
@@ -1290,6 +1283,18 @@ void serializeJSON(const FDSNXML::FloatType *ft, IO::JSONArchive &ar) {
 	}
 	catch ( Core::ValueException & ) {
 	}
+}
+
+
+void serializeJSON(const FDSNXML::FloatType *ft, IO::JSONArchive &ar) {
+	try {
+		double value = ft->value();
+		ar & NAMED_OBJECT("value", value);
+	}
+	catch ( Core::ValueException & ) {
+	}
+
+	serializeJSONUncertainty(ft, ar);
 }
 
 
@@ -1359,6 +1364,38 @@ void populateJSON(const string &name, const T1 *sx, T2 sc, T3 (T4::*getObject)()
 }
 
 
+template<typename T1, typename T2, typename T3, typename T4>
+void populateJSONUncertainty(const string &name, const T1 *sx, T2 sc, T3 (T4::*getObject)() const) {
+	std::string data;
+
+	{
+		boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::string> > buf(data);
+		IO::JSONArchive ar;
+		ar.create(&buf, false);
+
+		try {
+			T3 object((sx->*getObject)());
+			serializeJSONUncertainty(&object, ar);
+		}
+		catch ( Core::ValueException & ) {
+			return;
+		}
+
+		if ( !ar.success() ) {
+			SEISCOMP_ERROR("failed to serialize %s", name.c_str());
+			return;
+		}
+	}
+
+	if ( data != "{}" ) {
+		DataModel::CommentPtr sc_comment = new DataModel::Comment;
+		sc_comment->setId("FDSNXML:" + name);
+		sc_comment->setText(data);
+		sc->add(sc_comment.get());
+	}
+}
+
+
 void populateJSON(const FDSNXML::Network *sx, DataModel::NetworkPtr sc) {
 	populateJSON("Identifier", sx, sc, &FDSNXML::Network::identifier, &FDSNXML::Network::identifierCount);
 	populateJSON("Operator", sx, sc, &FDSNXML::Network::operators, &FDSNXML::Network::operatorsCount);
@@ -1374,6 +1411,9 @@ void populateJSON(const FDSNXML::Station *sx, DataModel::StationPtr sc) {
 	populateJSON("SourceID", sx, sc, &FDSNXML::Station::sourceID);
 	populateJSON("Vault", sx, sc, &FDSNXML::Station::vault);
 	populateJSON("Geology", sx, sc, &FDSNXML::Station::geology);
+	populateJSONUncertainty("LatitudeUncertainty", sx, sc, &FDSNXML::Station::latitude);
+	populateJSONUncertainty("LongitudeUncertainty", sx, sc, &FDSNXML::Station::longitude);
+	populateJSONUncertainty("ElevationUncertainty", sx, sc, &FDSNXML::Station::elevation);
 }
 
 
@@ -1385,6 +1425,10 @@ void populateJSON(const FDSNXML::Channel *sx, DataModel::StreamPtr sc) {
 	populateJSON("DataLogger", sx, sc, &FDSNXML::Channel::dataLogger);
 	populateJSON("WaterLevel", sx, sc, &FDSNXML::Channel::waterLevel);
 	populateJSON("SourceID", sx, sc, &FDSNXML::Channel::sourceID);
+	populateJSONUncertainty("LatitudeUncertainty", sx, sc, &FDSNXML::Channel::latitude);
+	populateJSONUncertainty("LongitudeUncertainty", sx, sc, &FDSNXML::Channel::longitude);
+	populateJSONUncertainty("ElevationUncertainty", sx, sc, &FDSNXML::Channel::elevation);
+	populateJSONUncertainty("AzimuthUncertainty", sx, sc, &FDSNXML::Channel::azimuth);
 }
 
 

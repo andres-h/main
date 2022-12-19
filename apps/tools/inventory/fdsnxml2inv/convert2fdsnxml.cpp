@@ -355,6 +355,36 @@ void deserializeFloatType(IO::JSONArchive &ar, T1 sx, void (T2::*setProperty)(T3
 }
 
 
+template<typename T1, typename T2, typename T3, typename T4>
+void deserializeUncertainty(IO::JSONArchive &ar, T1 sx, void (T2::*setProperty)(T3), const T4& (T2::*property)() const) {
+	double upperUncertainty = NAN, lowerUncertainty = NAN;
+	string unit, measurementMethod;
+	ar & NAMED_OBJECT("unit", unit);
+	ar & NAMED_OBJECT("upperUncertainty", upperUncertainty);
+	ar & NAMED_OBJECT("lowerUncertainty", lowerUncertainty);
+	ar & NAMED_OBJECT("measurementMethod", measurementMethod);
+
+	T4 ft;
+
+	try { ft = (sx.get()->*property)(); }
+	catch ( Core::ValueException & ) { return; }
+
+	if ( unit.length() > 0 )
+		ft.setUnit(unit);
+
+	if ( !std::isnan(upperUncertainty) )
+		ft.setUpperUncertainty(upperUncertainty);
+
+	if ( !std::isnan(lowerUncertainty) )
+		ft.setLowerUncertainty(lowerUncertainty);
+
+	if ( measurementMethod.length() > 0 )
+		ft.setMeasurementMethod(measurementMethod);
+
+	(sx.get()->*setProperty)(ft);
+}
+
+
 template<typename T1, typename T2, typename T3>
 void deserializeString(IO::JSONArchive &ar, T1 sx, void (T2::*setProperty)(T3)) {
 	string value;
@@ -388,6 +418,12 @@ void deserializeJSON(const string& name, IO::JSONArchive &ar, FDSNXML::StationPt
 		deserializeString(ar, sx, &FDSNXML::Station::setVault);
 	else if ( name == "FDSNXML:Geology" )
 		deserializeString(ar, sx, &FDSNXML::Station::setGeology);
+	else if ( name == "FDSNXML:LatitudeUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Station::setLatitude, &FDSNXML::Station::latitude);
+	else if ( name == "FDSNXML:LongitudeUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Station::setLongitude, &FDSNXML::Station::longitude);
+	else if ( name == "FDSNXML:ElevationUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Station::setElevation, &FDSNXML::Station::elevation);
 }
 
 
@@ -406,6 +442,14 @@ void deserializeJSON(const string& name, IO::JSONArchive &ar, FDSNXML::ChannelPt
 		deserializeFloatType(ar, sx, &FDSNXML::Channel::setWaterLevel);
 	else if ( name == "FDSNXML:SourceID" )
 		deserializeString(ar, sx, &FDSNXML::Channel::setSourceID);
+	else if ( name == "FDSNXML:LatitudeUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Channel::setLatitude, &FDSNXML::Channel::latitude);
+	else if ( name == "FDSNXML:LongitudeUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Channel::setLongitude, &FDSNXML::Channel::longitude);
+	else if ( name == "FDSNXML:ElevationUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Channel::setElevation, &FDSNXML::Channel::elevation);
+	else if ( name == "FDSNXML:AzimuthUncertainty" )
+		deserializeUncertainty(ar, sx, &FDSNXML::Channel::setAzimuth, &FDSNXML::Channel::azimuth);
 }
 
 
