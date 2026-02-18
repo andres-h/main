@@ -71,7 +71,7 @@ class _DataSelectRequestOptions(RequestOptions):
     def _checkTimes(self, realtimeGap):
         maxEndTime = Time(self.accessTime)
         if realtimeGap is not None:
-            maxEndTime -= Time(realtimeGap, 0)
+            maxEndTime -= TimeSpan(realtimeGap)
 
         for ro in self.streams:
             # create time if non was specified
